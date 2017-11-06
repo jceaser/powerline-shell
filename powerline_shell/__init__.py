@@ -179,7 +179,16 @@ def main():
     theme_name = config.get("theme", "default")
     mod = importlib.import_module("powerline_shell.themes." + theme_name)
     theme = getattr(mod, "Color")
-
+    
+    '''
+    Config settings:
+    {"theme-overrides":{"PATH_BG":31, "PATH_FG":15}}
+    '''
+    theme_overrides = config.get("theme-overrides", [])
+    if len(theme_overrides)>0:
+        for item in theme_overrides:
+            setattr(theme, item, theme_overrides[item])
+    
     powerline = Powerline(args, config, theme)
     segments = []
     for seg_name in config["segments"]:
