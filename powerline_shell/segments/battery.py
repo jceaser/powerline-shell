@@ -4,6 +4,24 @@ import os, subprocess, re
 LOW_BATTERY_THRESHOLD = 20
 
 class Segment(BasicSegment):
+    def low_battery_threshold(self):
+        '''
+        gets the user configured threshold for low battery mode
+        @return value between 0 and 100
+        '''
+        raw = self.powerline.segment_conf("battery","low",LOW_BATTERY_THRESHOLD)
+        lbt = raw if 0<raw and raw<100 else LOW_BATTERY_THRESHOLD
+        return lbt
+    
+    def display_below(self):
+        '''
+        Setting to display text only if there is a reason to, if below a value
+        @return <0 and >=100
+        '''
+        raw = self.powerline.segment_conf("battery", "display_below", 100)
+        display_below = raw if 0<raw and raw<=100 else 100
+        return display_below
+    
     def add_to_powerline(self):
         # See discussion in https://github.com/banga/powerline-shell/pull/204
         # regarding the directory where battery info is saved
@@ -23,15 +41,6 @@ class Segment(BasicSegment):
             warn("battery directory could not be found")
             return
     
-    def low_battery_threshold(self):
-        '''
-        gets the user configured threshold for low battery mode
-        @return value between 0 and 100
-        '''
-        raw = self.powerline.segment_conf("battery","low",LOW_BATTERY_THRESHOLD)
-        lbt = raw if 0<raw and raw<100 else LOW_BATTERY_THRESHOLD
-        return lbt
-    
     def handle_sys_class(self, dir_):
         '''
         Pull the batter info from the supplied proc file and send to powerline
@@ -50,19 +59,21 @@ class Segment(BasicSegment):
         @return status charging status is one of [charged|discharging|???]
         @cap capacity 0-100 as a string
         '''
+        if cap<0 or 100<cap:
+            warn ("'%d' is not a valid battery capacity" % cap)
+        
         pwr = u"\u26A1" if status.lower() == "charging" else u" "
         pwr = u"\u2301" if status.lower() == "discharging" else pwr
         
         src = u"\u2393" if source.lower() == "battery" else ""
         src = u"\u23E6" if source.lower() == "power" else src
         
-        if cap<0 or 100<cap:
-            warn ("'%d' is not a valid battery capacity" % cap)
-        
         if cap < self.low_battery_threshold() and source!="ac":
             bg = self.powerline.theme.BATTERY_LOW_BG
             fg = self.powerline.theme.BATTERY_LOW_FG
         else:
+            if self.display_below()<cap:
+                return
             bg = self.powerline.theme.BATTERY_NORMAL_BG
             fg = self.powerline.theme.BATTERY_NORMAL_FG
         self.powerline.append(" %s %d%% %s " % (src, cap, pwr), fg, bg)
